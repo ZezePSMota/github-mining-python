@@ -1,9 +1,12 @@
 import time
 import datetime
 import pandas
+import os
 import json
 from pandas import json_normalize
 from github import Github
+
+from windows_inhibitor import WindowsInhibitor
 
 
 def extract_repo_info(repo):
@@ -26,7 +29,6 @@ def extract_repo_info(repo):
 
 
 class GithubSearcher:
-
     token = ""
     github_client = None
 
@@ -47,65 +49,83 @@ class GithubSearcher:
         except FileNotFoundError:
             print("No OAUTH Token")
 
-    def check_rate_limit(self, is_search=False):
+    def check_rate_limit(self):
+
         rate_limits = self.github_client.get_rate_limit()
-
         if rate_limits.search.remaining == 0:
-            time_diff = rate_limits.search.reset - datetime.datetime.utcnow()
-            wait_time = time_diff.total_seconds()
-
-            print(f'Search, wait: {int(wait_time/3600)} hours, {int(wait_time/60)} minutes, {int(wait_time%60)} seconds.')
-
-            time.sleep(wait_time)
+            rate_limit = rate_limits.search
 
         elif rate_limits.core.remaining == 0:
-            time_diff = rate_limits.core.reset - datetime.datetime.utcnow()
+            rate_limit = rate_limits.core
+
+        else:
+            return
+
+        time_diff = rate_limit.reset - datetime.datetime.utcnow()
+        wait_time = time_diff.total_seconds()
+
+        print(f'Now: {datetime.datetime.now()}\nWait: {int(wait_time / 3600)} hours, {int(wait_time / 60)} '
+              f'minutes, {int(wait_time % 60)} seconds.')
+
+        while wait_time > 100:
+            self.github_client.get_rate_limit()
+            time_diff = rate_limit.reset - datetime.datetime.utcnow()
             wait_time = time_diff.total_seconds()
-
-            print(f'Core, wait: {int(wait_time/3600)} hours, {int(wait_time/60)} minutes, {int(wait_time%60)} seconds.')
-
-            time.sleep(wait_time)
-
+            # print(f'{rate_limit.reset}   {datetime.datetime.utcnow()}')
+            print(f'Now: {datetime.datetime.now()}\nWait: {int(wait_time / 3600)} hours, {int(wait_time / 60)}'
+                  f' minutes, {int(wait_time % 60)} seconds.')
+            time.sleep(30)
+        time.sleep(wait_time)
         print(f'Remaining Rate Limit:{rate_limits.search.remaining}; {rate_limits.core.remaining}')
-        pass
 
     def search(self, query, min_stars, max_stars):
 
-        self.check_rate_limit(True)
+        self.check_rate_limit()
         query = f'{query} stars:{min_stars}..{max_stars}'
         query_response = self.github_client.search_repositories(query=query, sort="stars")
         return query_response, min_stars, max_stars
 
-    def exhaustive_search(self, query="", min_stars=10, max_stars=1000000):
+    def exhaustive_search(self, query="", min_stars=23, max_stars=1000000):
 
         while max_stars >= 0:
 
             query_response, min_stars, max_stars = self.search(query, min_stars, max_stars)
             print(query_response.totalCount, min_stars, max_stars)
-            if query_response.totalCount == 1000 and min_stars+1 <= max_stars:
-                min_stars = min_stars+1
+            if query_response.totalCount == 1000 and min_stars + 1 <= max_stars:
+                min_stars = min_stars + 1
             else:
-                max_stars = min_stars-1
-                if min_stars-10 < 0:
+                max_stars = min_stars - 1
+                if min_stars - 10 < 0:
                     min_stars = 0
                 else:
-                    min_stars = min_stars-10
+                    min_stars = min_stars - 10
 
                 for repo in query_response:
+                    self.check_rate_limit()
                     repo_dict = extract_repo_info(repo)
                     self.total_repositories = self.total_repositories.append(repo_dict, ignore_index=True)
 
 
-g = GithubSearcher()
+print(datetime.datetime.now())
+osSleep = None
+# in Windows, prevent the OS from sleeping while we run
+if os.name == 'nt':
+    osSleep = WindowsInhibitor()
+    osSleep.inhibit()
 
-# g.exhaustive_search("rxjs")
-# g.total_repositories.to_csv('rxjs.csv')
+    g = GithubSearcher()
 
-g.exhaustive_search("rxjava")
-g.total_repositories.to_csv('rxjava.csv')
+    g.exhaustive_search("rxjs")
+    g.total_repositories.to_csv('repos/rxjs.csv')
 
-g.exhaustive_search("rxswift")
-g.total_repositories.to_csv('rxjava.csv')
+    g.exhaustive_search("rxswift")
+    g.total_repositories.to_csv('repos/rxswift.csv')
 
-g.exhaustive_search("rxkotlin")
-g.total_repositories.to_csv('rxjava.csv')
+    g.exhaustive_search("rxkotlin")
+    g.total_repositories.to_csv('repos/rxkotlin.csv')
+
+    g.exhaustive_search("rxjava")
+    g.total_repositories.to_csv('repos/rxjava.csv')
+
+if osSleep:
+    osSleep.allow()
