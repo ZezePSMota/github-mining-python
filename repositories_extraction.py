@@ -116,16 +116,16 @@ if os.name == 'nt':
     g = GithubSearcher()
 
     g.exhaustive_search("rxjs")
-    g.total_repositories.to_csv('repos/rxjs.csv')
+    g.total_repositories.to_csv('CSVs/rxjs.csv')
 
     g.exhaustive_search("rxswift")
-    g.total_repositories.to_csv('repos/rxswift.csv')
+    g.total_repositories.to_csv('CSVs/rxswift.csv')
 
     g.exhaustive_search("rxkotlin")
-    g.total_repositories.to_csv('repos/rxkotlin.csv')
+    g.total_repositories.to_csv('CSVs/rxkotlin.csv')
 
     g.exhaustive_search("rxjava")
-    g.total_repositories.to_csv('repos/rxjava.csv')
+    g.total_repositories.to_csv('CSVs/rxjava.csv')
 
 if osSleep:
     osSleep.allow()
