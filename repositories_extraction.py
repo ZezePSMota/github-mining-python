@@ -7,6 +7,7 @@ from pandas import json_normalize
 from github import Github
 
 from windows_inhibitor import WindowsInhibitor
+from repositories_search import TECHNOLOGIES
 
 
 def extract_repo_info(repo):
@@ -108,24 +109,15 @@ class GithubSearcher:
 
 print(datetime.datetime.now())
 osSleep = None
-# in Windows, prevent the OS from sleeping while we run
+# in Windows, prevent the OS from sleeping while running
 if os.name == 'nt':
     osSleep = WindowsInhibitor()
     osSleep.inhibit()
 
     g = GithubSearcher()
-
-    g.exhaustive_search("rxjs")
-    g.total_repositories.to_csv('CSVs/rxjs.csv')
-
-    g.exhaustive_search("rxswift")
-    g.total_repositories.to_csv('CSVs/rxswift.csv')
-
-    g.exhaustive_search("rxkotlin")
-    g.total_repositories.to_csv('CSVs/rxkotlin.csv')
-
-    g.exhaustive_search("rxjava")
-    g.total_repositories.to_csv('CSVs/rxjava.csv')
+    for technology in TECHNOLOGIES:
+        g.exhaustive_search(technology)
+        g.total_repositories.to_csv(f'CSVs\\{technology}.csv')
 
 if osSleep:
     osSleep.allow()
